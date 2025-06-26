@@ -1,45 +1,39 @@
-import fastapi
-import uvicorn
-from fastapi.middleware.cors import CORSMiddleware
+# main.py
+from fastapi import FastAPI
+import oracledb
+import os
 
-from src.api.endpoints import router as api_endpoint_router
-from src.config.events import execute_backend_server_event_handler, terminate_backend_server_event_handler
-from src.config.manager import settings
+app = FastAPI()
 
+# OCI Autonomous Database 접속 정보
+# 이 정보는 Docker 환경 변수에서 가져옵니다.
+db_user = os.getenv("DB_USER")
+db_password = os.getenv("DB_PASSWORD")
+tns_alias = os.getenv("TNS_ALIAS")
+tns_admin_path = os.getenv("TNS_ADMIN")
 
-def initialize_backend_application() -> fastapi.FastAPI:
-    app = fastapi.FastAPI(**settings.set_backend_app_attributes)  # type: ignore
+# Oracle Client Wallet 경로를 설정합니다.
+if tns_admin_path:
+    os.environ['TNS_ADMIN'] = tns_admin_path
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.ALLOWED_ORIGINS,
-        allow_credentials=settings.IS_ALLOWED_CREDENTIALS,
-        allow_methods=settings.ALLOWED_METHODS,
-        allow_headers=settings.ALLOWED_HEADERS,
-    )
+@app.get("/")
+def read_root():
+    return {"message": "Hello from FastAPI!"}
 
-    app.add_event_handler(
-        "startup",
-        execute_backend_server_event_handler(backend_app=app),
-    )
-    app.add_event_handler(
-        "shutdown",
-        terminate_backend_server_event_handler(backend_app=app),
-    )
-
-    app.include_router(router=api_endpoint_router, prefix=settings.API_PREFIX)
-
-    return app
-
-
-backend_app: fastapi.FastAPI = initialize_backend_application()
-
-if __name__ == "__main__":
-    uvicorn.run(
-        app="main:backend_app",
-        host=settings.SERVER_HOST,
-        port=settings.SERVER_PORT,
-        reload=settings.DEBUG,
-        workers=settings.SERVER_WORKERS,
-        log_level=settings.LOGGING_LEVEL,
-    )
+@app.get("/db-status")
+def check_db_connection():
+    conn = None
+    try:
+        conn = oracledb.connect(
+            user=db_user,
+            password=db_password,
+            dsn=tns_alias
+        )
+        print("Successfully connected to the database!")
+        return {"db_status": "connected"}
+    except Exception as e:
+        print(f"Error connecting to database: {e}")
+        return {"db_status": f"disconnected: {e}"}
+    finally:
+        if conn:
+            conn.close()
