@@ -1,4 +1,4 @@
 fastapi
 uvicorn
 gunicorn
-python-oracledb
+# Oracle DB 드라이버는 다른 방식으로 설치할 예정
