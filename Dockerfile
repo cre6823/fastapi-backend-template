@@ -1,8 +1,10 @@
-# Corrected Dockerfile - Use local file
+# Final Corrected Dockerfile
+# Python 3.10 slim 이미지를 사용합니다.
 FROM python:3.10-slim
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y libaio1 unzip build-essential \
+# 필요한 시스템 패키지를 설치합니다.
+# build-essential은 Python 패키지 컴파일에 필요합니다.
+RUN apt-get update && apt-get install -y libaio1 unzip wget build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Set a working directory
@@ -11,15 +13,15 @@ WORKDIR /app
 # Copy all project files, including the uploaded Oracle Client ZIP
 COPY . .
 
-# Unzip and install Oracle Instant Client from the copied ZIP file
-RUN mkdir -p /opt/oracle/instantclient \
-    && unzip instantclient-basic-linux.x64-21.14.0.0.0dbru.zip -d /opt/oracle/instantclient \
-    && rm instantclient-basic-linux.x64-21.14.0.0.0dbru.zip \
-    && echo "/opt/oracle/instantclient/instantclient_21_14" > /etc/ld.so.conf.d/oracle-instantclient.conf \
-    && ldconfig
+# Unzip the client and set up libraries in a standard location
+RUN unzip instantclient-basic-linux.x64-21.14.0.0.0dbru.zip -d /usr/local/lib/ \
+    && rm instantclient-basic-linux.x64-21.14.0.0.0dbru.zip
 
-# Set LD_LIBRARY_PATH
-ENV LD_LIBRARY_PATH=/opt/oracle/instantclient/instantclient_21_14:$LD_LIBRARY_PATH
+# Set LD_LIBRARY_PATH to the unzipped directory
+ENV LD_LIBRARY_PATH=/usr/local/lib/instantclient_21_14:$LD_LIBRARY_PATH
+
+# Update library cache
+RUN ldconfig
 
 # Install Python dependencies from requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
